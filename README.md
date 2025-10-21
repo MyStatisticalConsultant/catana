@@ -1,10 +1,4 @@
----
-title: "Categorical Data Analysis – Shiny App"
-output:
-  github_document:
-    toc: true
-    toc_depth: 2
----
+# Categorical Data Analysis – Shiny App
 
 > Live app: **[https://YOUR-LIVE-APP-URL](https://YOUR-LIVE-APP-URL)**  
 > Feedback: **Zlatko@MyStatisticalConsultant.com**
