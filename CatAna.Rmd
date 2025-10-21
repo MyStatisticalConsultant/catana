@@ -1,0 +1,994 @@
+---
+title: "Categorical Data Analysis"
+output:
+  word_document:
+    highlight: null
+    
+params:
+    data: NA
+    fv1: NA
+    fv2: NA
+    typeBar: NA
+    displayWithPie: NA
+    repDataSetInput: NA
+    obs: !r c(5)
+    factor: NA
+    dataInput: NA
+    numCounts: !r c("100,200,55,75")
+    numColumn: !r c(2)
+    numRow: !r c(2)
+    fv3: NA
+    fv3a: NA
+    selectionLoglin: !r c("1")
+    numSuccess: !r c("35,41")
+    numTotal: !r c("53,72")
+    pNull: !r c("0.5,0.5")
+    pAlter: !r c("two.sided")
+    pConf: !r c(0.95)
+    pCorrect: !r c(FALSE)
+    numSuccess1: !r c(35)
+    numTotal1: !r c(53)
+    pNull1: !r c(0.5)
+    pAlter1: !r c("two.sided")
+    pConf1: !r c(0.95)
+    name: NA
+    text_graphcat1: NA
+    text_graphcat2: NA
+    text_graphcat3: NA
+    text_graphcat4: NA
+    text_graphcat5: NA
+    text_graphcat6: NA
+    text_graphcat7: NA
+    text_tablecat1: NA
+    text_tablecat2: NA
+    text_tablecat3: NA
+    text_tablecat4: NA
+    text_tablecat5: NA
+    text_infercat1: NA
+    text_infercat2: NA
+    text_infercat3: NA
+    text_infercat4: NA
+    text_infercat5: NA
+    text_infercat6: NA
+    text_infercat7: NA
+---
+
+
+```{r library, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+library(shiny)
+library(shinydashboard)
+library(vcd)
+library(car)
+library(lattice)
+library(aplpack)
+library(psych)
+library(MASS)
+library(ca)
+library(grid)
+library(ggplot2)
+library(kableExtra)
+library(knitr)
+library(tidyr)
+library(formattable)
+```
+
+```{r setup, include=FALSE}
+# Pull commonly used params into locals
+df  <- params$data
+fv1 <- params$fv1
+fv2 <- params$fv2
+
+# Normalize and basic readiness flag
+if (!is.null(df)) df <- as.data.frame(df)
+is_ready <- !is.null(df) && is.data.frame(df) &&
+            !is.null(fv1) && !is.null(fv2) &&
+            all(c(fv1, fv2) %in% names(df))
+dataRep <- df
+```
+
+```{r utils, include=FALSE}
+# Utility: build a safe contingency table or return NULL + print a note
+safe_ctab <- function(df, f1, f2, require_identical_levels = FALSE, section = "This section") {
+  if (is.null(df) || !is.data.frame(df) || is.null(f1) || is.null(f2) ||
+      !all(c(f1, f2) %in% names(df))) {
+    cat("**NOTE:** Missing data or variables for ", section, ".\n", sep = "")
+    return(NULL)
+  }
+
+  x <- as.factor(df[[f1]])
+  y <- as.factor(df[[f2]])
+
+  lx <- levels(x); ly <- levels(y)
+
+  if (length(lx) < 2L || length(ly) < 2L) {
+    cat("**NOTE:** Both variables must be categorical with ≥2 levels for ", section, ".\n", sep = "")
+    return(NULL)
+  }
+
+  if (require_identical_levels && !identical(lx, ly)) {
+    cat("**NOTE:** ", section, " requires the two variables to have **exactly the same categories (and order)**.\n",
+        "Selected levels:\n- ", f1, ": {", paste(lx, collapse=", "), "}\n- ",
+        f2, ": {", paste(ly, collapse=", "), "}\n", sep = "")
+    return(NULL)
+  }
+
+  # For non-agreement sections you might prefer the union; keep identical() for agreement only
+  tab <- table(x, y, useNA = "no")
+  if (sum(tab) == 0) {
+    cat("**NOTE:** No paired observations for ", section, ".\n", sep = "")
+    return(NULL)
+  }
+  tab
+}
+```
+
+
+
+Author: `r params$name`
+
+Date: `r strftime(Sys.Date(), format = "%Y-%b-%d")`
+
+<br />
+
+#1 Dataset description
+
+This report was created using the `r params$dataInput` dataset. The first categorical variable is `r params$fv1` and the second categorical variable is `r params$fv2`. 
+
+<br />
+
+#2 Graphs
+
+##2.1 Bar chart
+
+A bar chart is a graphical representation of the distribution of qualitative data (i.e. categorical variable).
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.width=5, fig.height=5}
+
+dataFac <- df
+
+repBarPlot <- function(){
+  
+  if(length(dataFac) == 0 || is.null(dataFac)){
+    out <- paste("NOTE: There are no categorical variables in the selected dataset.")
+    return(out)
+  }
+  
+  if(ncol(dataFac) == 1){
+    counts <- table(dataFac[,params$fv1])
+    return(barplot(counts, xlab=paste(params$fv1), ylab="Frequency", main=paste("Distribution by", params$fv1)) )
+  }
+  
+  if(is.null(params$typeBar)){
+    typeBar <- "plainBar"
+  } else {
+    typeBar <- params$typeBar 
+  }
+  
+  if(typeBar == "groupedBar") #Grouped bar chart
+  {
+    counts <- table(dataFac[,params$fv1], dataFac[, params$fv2])
+    return(barplot(counts, xlab=paste(params$fv2), ylab="Frequency", legend = rownames(counts), beside=TRUE, main=paste("Distribution by", params$fv1, "and", params$fv2)) )
+  }
+  
+  if(typeBar == "stackedBar") #Stacked bar chart
+  {
+    counts <- table(dataFac[,params$fv1], dataFac[, params$fv2])
+    return(barplot(counts, xlab=paste(params$fv2), ylab="Frequency", legend = rownames(counts), main=paste("Distribution by", params$fv1, "and", params$fv2)) )
+  }
+  
+  if(typeBar == "plainBar") # Not grouped bar chart
+  {
+    counts <- table(dataFac[,params$fv1])
+    return(barplot(counts, xlab=paste(params$fv1), ylab="Frequency", main=paste("Distribution by", params$fv1)) )	
+  }
+}
+
+repBarPlot()
+
+```
+
+_Figure 1_. Bar chart of the `r params$fv1` and `r params$fv2` variables
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+#### Interpretation
+`r params$text_graphcat1`
+
+
+##2.2 Dotplot
+
+A dotplot is a type of graphic display used to compare frequency counts within categories or groups.
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.width=5, fig.height=5}
+dataFac <- df
+
+if(ncol(dataFac) == 1) 
+{
+  myTable <- table(dataFac[,params$fv1])
+  dotplot(myTable, groups=FALSE, type=c("p", "h"), xlab="Frequency", 
+          prepanel = function (x, y) {
+            list(ylim = levels(reorder(y, x)))
+          }, 
+          panel = function(x, y, ...){
+            panel.dotplot(x, reorder(y,x), ...)
+          }) 
+} else {
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  dotplot(myTable, groups=FALSE, layout = c(1, length(levels(dataFac[,params$fv2]))), auto.key=list(lines=TRUE), type=c("p", "h"), xlab="Frequency",
+          prepanel = function (x, y) {
+            list(ylim = levels(reorder(y, x)))
+          }, 
+          panel = function(x, y, ...){
+            panel.dotplot(x, reorder(y,x), ...)
+          })
+}
+
+```
+
+_Figure 2_. Dotplot of the `r params$fv1` and `r params$fv2` variables
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+#### Interpretation
+`r params$text_graphcat2`
+
+##2.3 Pie chart
+
+Pie chart is a graphical technique for presenting relative frequencies associated with the observed values of a categorical variable.
+
+```{r PieChart, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.width=5, fig.height=5}
+dataFac <- df
+
+if(is.null(params$displayWithPie)) {
+  displayWithPie <- "justLabel"
+} else {
+  displayWithPie <- params$displayWithPie
+}
+
+if(displayWithPie == "sampleSizePie")
+{
+  myTable <- table(dataFac[,params$fv1])
+  labs<- paste(names(myTable), "\n", myTable, sep="")
+  pie(myTable, labels=labs, col=rainbow(length(levels(dataFac[,params$fv1]))), main=paste("Pie chart of", paste(params$fv1), "\n (with number in the slice)"))
+}	else {
+  if(displayWithPie == "percentPie")
+  {
+    myTable <- table(dataFac[,params$fv1])
+    percentlabels<- round(100*myTable/sum(myTable), 1)
+    labs<- paste(names(myTable), "\n", percentlabels, "%", sep="")
+    pie(myTable, labels=labs, col=rainbow(length(levels(dataFac[,params$fv1]))), main=paste("Pie chart of", paste(params$fv1), "\n (with percentage)"))
+  }	else {
+    if(displayWithPie == "justLabel") 
+    {
+      myTable <- table(dataFac[,params$fv1])
+      labs<- paste(names(myTable))
+      pie(myTable, labels=labs, col=rainbow(length(levels(dataFac[,params$fv1]))), main=paste("Pie chart of", paste(params$fv1)))
+    }
+  }
+}
+
+```
+
+_Figure 3_. Pie chart of the `r params$fv1` variable
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+#### Interpretation
+`r params$text_graphcat3`
+
+##2.4 Mosaic plot
+
+A mosaic plot is a graphical display that allows examination of the relationship among two or more categorical variables.
+
+```{r Mosaic, echo=FALSE, warning=FALSE, message=FALSE, fig.width=5, fig.height=5}
+# df, fv1, fv2 come from your setup chunk
+
+if (is.null(df) || !is.data.frame(df) ||
+    is.null(fv1) || is.null(fv2) ||
+    !all(c(fv1, fv2) %in% names(df))) {
+  cat("**NOTE:** At least two categorical variables are required for a mosaic plot.\n")
+} else {
+  x <- as.factor(df[[fv1]])
+  y <- as.factor(df[[fv2]])
+
+  if (nlevels(x) < 2L || nlevels(y) < 2L) {
+    cat("**NOTE:** Both variables must be categorical with ≥ 2 levels for a mosaic plot.\n")
+  } else {
+    tab <- table(x, y, useNA = "no")
+    if (sum(tab) == 0) {
+      cat("**NOTE:** No paired observations for the selected variables.\n")
+    } else if (!requireNamespace("vcd", quietly = TRUE)) {
+      cat("(Package 'vcd' not available; showing contingency table instead.)\n")
+      print(tab)
+    } else {
+      # Give friendly axis names in the mosaic (keys must match dimnames of 'tab')
+      names(dimnames(tab)) <- c("x", "y")
+      long.labels <- list(set_varnames = c(x = fv1, y = fv2))
+
+      grid::grid.newpage()
+      vcd::mosaic(
+        tab,
+        shade = TRUE,
+        legend = TRUE,
+        labeling_args = long.labels
+      )
+    }
+  }
+}
+```
+
+
+_Figure 4_. Mosaic plot of the `r params$fv1` and `r params$fv2` variables
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+
+#### Interpretation
+`r params$text_graphcat4`
+
+##2.5 Association plot
+
+An association plot indicates deviations from a specified independence model in a possibly high-dimensional contingency table
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.width=5, fig.height=5}
+dataFac <- df
+
+repAssocPlot <- function(){
+  if((length(dataFac) == 0 || is.null(dataFac)) || ncol(dataFac)<=1){
+    out <- paste("NOTE: At least two categorical variables are required for an association plot.")
+    return(out)
+  }else{
+    xvector <- as.vector(dataFac[,params$fv1])
+    yvector <- as.vector(dataFac[,params$fv2])
+    long.labels <- list(set_varnames = c(xvector=params$fv1, yvector=params$fv2))
+    myTable <- table(xvector, yvector)
+    return(assoc(myTable, legend=TRUE, shade=TRUE, col=TRUE, cex.axis=0.5, labeling_args = long.labels))
+  }
+}
+
+repAssocPlot()
+
+```
+
+_Figure 5_. Association plot of the `r params$fv1` and `r params$fv2` variables
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+#### Interpretation
+`r params$text_graphcat5`
+
+##2.6 Agreement plot
+
+An agreement plot provides a simple graphic representation of the strength of agreement in a contingency table, and a measure of strength of agreement with an intuitive interpretation.
+
+```{r Agreement, echo=FALSE, warning=FALSE, message=FALSE, fig.width=5, fig.height=5}
+# Use the safe_ctab helper, requiring identical levels
+tab <- safe_ctab(df, fv1, fv2, require_identical_levels = TRUE, section = "Agreement")
+
+if (!is.null(tab)) {
+  if (!requireNamespace("vcd", quietly = TRUE)) {
+    cat("(Package 'vcd' not available; skipping agreement plot.)\n")
+    print(tab)
+  } else {
+    grid::grid.newpage()
+    vcd::agreementplot(tab, xlab = fv1, ylab = fv2)
+    # Optional: kappa
+    print(vcd::Kappa(tab))
+  }
+}
+```
+
+_Figure 6_. Agreement plot of the `r params$fv1` and `r params$fv2` variables
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+#### Interpretation
+`r params$text_graphcat6`
+
+
+##2.7 Correspondence plot
+
+Graphical display of the relationship between categorical variables in a type of scatterplot diagram.
+
+```{r Correspondence, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.width=5, fig.height=5}
+dataFac <- df
+
+repCorrespondencePlot <- function(){
+  if((length(dataFac) == 0 || is.null(dataFac)) || ncol(dataFac)<=1 || min(length(levels(dataFac[,params$fv1])), length(levels(dataFac[,params$fv2])))<=2) {
+    out <- paste("NOTE: At least two categorical variables are required for a correspondence analysis plot. Also,  each of the categorical variable must have at least three categories. ")
+    return(out)
+  }
+  
+  if((length(dataFac) == 0 || is.null(dataFac)) || ncol(dataFac)<=1 || min(length(levels(dataFac[,params$fv1])), length(levels(dataFac[,params$fv2])))<=2) {
+    out <- paste("NOTE: At least two categorical variables are required for a correspondence analysis. Also,  each of the categorical variable must have at least three categories. ")
+    return(out)
+  }
+  
+  xvector <- as.vector(dataFac[,params$fv1])
+  yvector <- as.vector(dataFac[,params$fv2])
+  myTable <- table(xvector, yvector)
+  return(plot(ca(myTable, nd=ncol(myTable))))
+  
+}
+
+repCorrespondencePlot()
+
+```
+
+_Figure 7_. Correspondence plot of the `r params$fv1` and `r params$fv2` variables
+
+(Hint: insert this caption below the graph according to APA style requirements.)
+
+#### Interpretation
+`r params$text_graphcat7`
+
+#3 Tables
+
+##3.1 Dataset
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+datasetInput <- params$repDataSetInput
+
+if(!is.null(datasetInput)){
+  out <- head(datasetInput, n=params$obs)
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out)
+  
+} else {
+  return(NULL)
+}
+```
+
+#### Interpretation
+`r params$text_tablecat1`
+
+##3.2 Descriptive statistics
+
+We summarise categorical variable basically by counting occurrences to give us a frequency. If the categories are coded then the psych package provides also mean values and standard deviations.
+
+Table 1.
+
+_Descriptive statistics for the dataset `r params$dataInput`_
+
+(Hint: insert a table here formatted according to APA style requirements. Move the following software output into an appendix.)
+
+
+###3.2.1 Print summary statistics (base)
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(!is.null(dataFac)){
+  dataset <- dataFac
+  out <- summary(dataset)
+  return(out)
+} else {
+  out <- NULL
+  return(out)
+}
+
+```
+
+###3.2.2 Print summary statistics by factor (psych)
+
+```{r psych, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(is.null(params$factor)) {
+  fac <- FALSE
+} else {
+  fac <- params$factor
+}
+
+if(length(dataFac) == 0 | is.null(dataFac)) {
+  out <- paste("NOTE: There are no numeric variables in the selected dataset.")
+  return(out)
+}	else {
+  if(fac == FALSE){
+    dataset <- dataFac
+    out <- describe(dataset, skew=FALSE, ranges=FALSE)
+    return(out)
+  } else {
+    dataset <- dataFac
+    out <- describeBy(dataset, group=dataFac[,params$fv1], skew=FALSE, ranges=FALSE)
+    return(out)
+  }
+}
+
+```
+
+#### Interpretation
+`r params$text_tablecat2`
+
+##3.3 Frequency tables
+
+We summarise categorical variable by counting up frequencies and by counting occurrences to give us proportions and percentages.
+
+Table 2.
+
+_Frequencies for the `r params$fv1` and `r params$fv2` variables_
+
+(Hint: insert a table here formatted according to APA style requirements. Move the following software output into an appendix.)
+
+###3.3.1 Frequency table
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(ncol(dataFac)>1){
+  out <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  
+  out <- as.data.frame(out)
+  out <- spread(out, Var2, Freq)
+  rwn <- out$Var1
+  out <- out[,-1]
+  rownames(out) <- rwn
+  
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out)
+  
+} else {
+  cTable <- as.data.frame(table(dataFac[,params$fv1]))
+  names(cTable)[1] = params$fv1
+  out <- cTable
+  
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out)
+}
+```
+
+###3.3.2 Cell percentages
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  out <- prop.table(myTable)
+  
+  out <- as.data.frame(out)
+  out <- spread(out, Var2, Freq)
+  rwn <- out$Var1
+  out <- out[,-1]
+  rownames(out) <- rwn
+  
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  myTable <- table(dataFac[,params$fv1])
+  cTable <- as.data.frame(prop.table(myTable))
+  names(cTable)[1] = params$fv1
+  out <- cTable
+  
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+}
+```
+
+###3.3.3 Expected frequencies
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  out <- independence_table(myTable)
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  myTable <- as.data.frame(table(dataFac[,params$fv1]))
+  names(myTable)[1] = params$fv1
+  out <- independence_table(myTable)
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+}
+```
+
+###3.3.4 Expected frequencies (relative)
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  out <- independence_table(myTable, frequency = c("relative"))
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  myTable <- table(dataFac[,params$fv1])
+  cTable <- as.data.frame(prop.table(myTable))
+  names(cTable)[1] = params$fv1
+  out <- independence_table(cTable, frequency = c("relative"))
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+}
+```
+
+###3.3.5 Marginal frequencies (1st variable) 
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+dataFac <- df
+
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  cTable <- margin.table(myTable, 1)
+  dfTable <- as.data.frame(cTable)
+  names(dfTable)[1] = params$fv1
+  out <- dfTable
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out)
+  
+} else {
+  out <- NULL 
+}
+```
+
+###3.3.6 Marginal frequencies (2nd variable)
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  cTable <- margin.table(myTable, 2)
+  dfTable <- as.data.frame(cTable)
+  names(dfTable)[1] = params$fv2
+  out <- dfTable
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out)
+  
+} else {
+  out <- NULL 
+}
+```
+
+###3.3.7 Marginal percentages (1st variable)
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  cTable <- margin.table(myTable, 1)
+  dfTable <- as.data.frame(prop.table(cTable))
+  names(dfTable)[1] = params$fv1
+  out <- dfTable
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  out <- NULL 
+}
+
+```
+
+###3.3.8 Marginal percentages (2nd variable)
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  cTable <- margin.table(myTable, 2)
+  dfTable <- as.data.frame(prop.table(cTable))
+  names(dfTable)[1] = params$fv2
+  out <- dfTable
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  out <- NULL 
+}
+```
+
+###3.3.9 Row percentages
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  out <- prop.table(myTable, 1)
+  
+  out <- as.data.frame(out)
+  out <- spread(out, Var2, Freq)
+  rwn <- out$Var1
+  out <- out[,-1]
+  rownames(out) <- rwn
+  
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  out <- NULL 
+}
+```
+
+###3.3.10 Column percentages
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(ncol(dataFac)>1){
+  myTable <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  out <- prop.table(myTable, 2)
+  
+  out <- as.data.frame(out)
+  out <- spread(out, Var2, Freq)
+  rwn <- out$Var1
+  out <- out[,-1]
+  rownames(out) <- rwn
+  
+  #kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+  kable(out, digits = 2, format.args = list(nsmall = 2))
+  
+} else {
+  out <- NULL 
+}
+```
+
+#### Interpretation
+`r params$text_tablecat3`
+
+
+##3.4 Association Statistics
+
+Computes the Pearson chi-squared test, the likelihood ratio chi-squared test, the phi coefficient, the contingency coefficient and Cramer's V.
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+xvector <- as.vector(dataFac[,params$fv1])
+yvector <- as.vector(dataFac[,params$fv2])
+myTable <- table(xvector, yvector)
+out <- summary(assocstats(myTable))
+return(out)
+```
+
+#### Interpretation
+`r params$text_tablecat4`
+
+##3.5 Correspondence analysis
+
+Correspondence analysis is one of a wide range of alternative ways of handling and representing the relationships between categorical data.
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(length(levels(dataFac[,params$fv1]))<=2 || length(levels(dataFac[,params$fv1]))<=2) {
+  out <- NULL
+} else {
+  xvector <- as.vector(dataFac[,params$fv1])
+  yvector <- as.vector(dataFac[,params$fv2])
+  
+  myTable <- table(xvector, yvector)
+  print(ca(myTable, nd=ncol(myTable)))
+}
+
+```
+
+#### Interpretation
+`r params$text_tablecat5`
+
+#4 Inference
+
+##4.1 Chi-squared test (raw data) 
+
+The chi-squared test is used to test independence of the row and column variables in the two-way/contingency tables.
+
+Table 3.
+
+_Chi-square test for association between `r params$fv1` and `r params$fv2` variables_
+
+(Hint: insert a table here formatted according to APA style requirements. Move the following software output into an appendix.)
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(ncol(dataFac)<=1){
+  out <- NULL
+} else {
+  conTbl <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+  test <- chisq.test(conTbl)
+  test$data.name <- paste(params$fv1, "and", params$fv2, "variables from", params$dataInput, "dataset")
+  out <- test
+  return(out)
+}
+```
+
+#### Interpretation
+`r params$text_infercat1`
+
+##4.2 Chi-squared test (aggregated data)
+
+The chi-squared test is used to test independence of the row and column variables in the two-way/contingency tables.
+
+Table 4.
+
+_Chi-square test for association between two categorical variables_
+
+(Hint: insert a table here formatted according to APA style requirements. Move the following software output into an appendix.)
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+############################
+# Two-way table aggregated
+############################
+aggTable <- function(){
+  numFreq <- as.numeric(unlist(strsplit(as.character(params$numCounts), split=",")))
+  aggTable <- matrix(numFreq, ncol=params$numColumn, nrow=params$numRow, byrow=TRUE)
+  out <- as.table(aggTable)
+  return(out)
+}
+
+# ###################################
+#  Chi-squared test (aggregated data)
+# ###################################
+out <- summary(aggTable())
+return(out)
+
+```
+
+###4.2.1 Expected frequencies
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+out <- independence_table(aggTable())
+#kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+kable(out, digits = 2, format.args = list(nsmall = 2))
+
+```
+
+
+###4.2.2 Expected frequencies (relative)
+<br />
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+out <- independence_table(aggTable(), frequency = c("relative"))
+#kable(out, format = "html", digits = 2, format.args = list(nsmall = 2)) %>% kable_styling(full_width = F, position = "left")
+kable(out, digits = 2, format.args = list(nsmall = 2))
+
+```
+
+#### Interpretation
+`r params$text_infercat2`
+
+
+##5.3 Fisher's exact test
+
+Fisher's exact test provides an exact test of independence of the row and column variables in the two-way/contingency tables.
+
+Table 5.
+
+_Fisher's exact test for association between `r params$fv1` and `r params$fv2` variables_
+
+(Hint: insert a table here formatted according to APA style requirements. Move the following software output into an appendix.)
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if((length(dataFac) == 0 || is.null(dataFac)) || ncol(dataFac)<=1){
+  out <- NULL
+} else {
+  if(length(levels(dataFac[,params$fv1]))+length(levels(dataFac[,params$fv2]))>6) {
+    out <- NULL
+  } else {
+    conTbl <- table(dataFac[,params$fv1], dataFac[,params$fv2])
+    test <- fisher.test(conTbl, conf.int = TRUE, conf.level = 0.95, workspace=2e+6, hybrid=TRUE)
+    test$data.name <- paste(params$fv1, "and", params$fv2, "variables from", params$dataInput, "dataset")
+    out <- test
+    return(out)
+  }
+}
+
+```
+
+#### Interpretation
+`r params$text_infercat3`
+
+##5.4 Mantel-Haenszel test
+
+Mantel-Haenszel chi-squared test is used to test the null hypothesis that two nominal variables are conditionally independent in each stratum.
+
+Table 6.
+
+_Mantel-Haenszel test for conditionally independence between two nominal variables in each stratum_
+
+(Hint: insert a table here formatted according to APA style requirements. Move the following software output into an appendix.)
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+if(is.null(params$fv3)) {
+  fv3 <- params$fv2
+} else {
+  fv3 <- params$fv3
+}
+
+
+if((length(dataFac) == 0 || is.null(dataFac)) || ncol(dataFac)<=2 || is.null(params$fv1)){
+  out <- NULL
+}	else {
+  if(length(levels(dataFac[,params$fv1]))<2 || length(levels(dataFac[,params$fv2]))<2 || length(levels(dataFac[,fv3]))<2 || params$fv1 == params$fv2 || params$fv1 == fv3 || params$fv2 == fv3) {
+    out <- NULL
+  } else {
+    conTbl <- table(dataFac[,params$fv1], dataFac[,params$fv2], dataFac[,fv3])
+    test <- mantelhaen.test(conTbl, conf.level = 0.95)
+    test$data.name <- paste(params$fv1, "and", params$fv2, "variables and strata", fv3, "from", params$dataInput, "dataset")
+    out <- test
+    return(out)
+  }
+}
+
+```
+
+#### Interpretation
+`r params$text_infercat4`
+
+##5.5 Log-linear model tests
+
+For a log-linear models based on a three-dimensional contingency tables the following tests are performed: mutual, partial, and conditional independence and no three-way interaction.
+
+```{r loglinear, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+if((length(dataFac) == 0 || is.null(dataFac)) || ncol(dataFac)<=2){
+  out <- NULL
+} else	{
+  
+  A <- dataFac[,params$fv1]
+  B <- dataFac[,params$fv2]
+  if(is.null(params$fv3a)) {
+    C <- dataFac[,1]
+  } else {
+    C <- dataFac[,params$fv3a]
+  }
+  dat <- cbind(A,B,C)
+  s <- params$selectionLoglin
+  mytable <- xtabs(~A+B+C, data=dat)
+  if(params$selectionLoglin == "1") {out <- loglm(~A+B+C, mytable)}
+  else if(params$selectionLoglin == "2") {out <- loglm(~A+B+C+B*C, mytable)}
+  else if(params$selectionLoglin == "3") {out <- loglm(~A+B+C+A*C+B*C, mytable)}
+  else if(params$selectionLoglin == "4") {out <- loglm(~A+B+C+A*B+A*C+B*C, mytable)}
+}
+return(out)
+```
+
+#### Interpretation
+`r params$text_infercat5`
+
+##5.6 Test of equal or given proportions
+
+Performs the test for testing the null hypothesis that the proportions (probabilities of success) in several groups are the same, or that they equal certain given values.
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+Success <- as.numeric(unlist(strsplit(as.character(params$numSuccess), split=",")))
+Total <- as.numeric(unlist(strsplit(as.character(params$numTotal), split=",")))
+Pnull <- as.numeric(unlist(strsplit(as.character(params$pNull), split=",")))
+if(all(Success<Total) && length(Success) == length(Total) && length(Success) == length(Pnull) && length(Total) == length(Pnull) && length(Success)!=2){
+  test <- prop.test(Success, Total, Pnull, alternative=params$pAlter, conf.level=params$pConf, correct=params$pCorrect)
+} else { 
+  if(length(Success)==2 && length(Total)==2) {test <- prop.test(Success, Total, alternative=params$pAlter, conf.level=params$pConf, correct=params$pCorrect)
+  } else {
+    test <- NULL
+  }
+}
+return(test)
+```
+
+#### Interpretation
+`r params$text_infercat6`
+
+##5.7 Binomial test
+
+Performs an exact test of a simple null hypothesis about the probability of success in a Bernoulli experiment.
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+Success <- params$numSuccess1
+Total <-  params$numTotal1
+if(Success<Total) { 
+  test <- binom.test(Success, Total, params$pNull1, alternative=params$pAlter1, conf.level=params$pConf1)
+} else {
+  test <- NULL
+}
+return(test)
+
+```
+
+#### Interpretation
+`r params$text_infercat7`
