@@ -7,6 +7,8 @@
 
 A Shiny dashboard for **exploring categorical data**: interactive **graphs**, **tables**, and **inference** for categorical variables, with built-in text boxes for **your interpretations** and a one-click **Download report** (Word `.docx`) that bundles results + your notes.
 
+<img src="https://github.com/user-attachments/assets/90285ba7-183d-4734-bbff-9ed7cd8496b3" alt="GIF CatAna" width="600" height="600">
+
 **Key features**
 
 - **Built-in example datasets** (Titanic, Hair/Eye Color, etc.) so you can try features instantly.  
