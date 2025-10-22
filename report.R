@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Zlatko J. Kovačić
 # Report ----
 
 # report.R
