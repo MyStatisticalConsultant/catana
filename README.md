@@ -1,6 +1,6 @@
 # Categorical Data Analysis – Shiny App
 
-> Live app: **[https://YOUR-LIVE-APP-URL](https://YOUR-LIVE-APP-URL)**  
+> Live app: **https://statisticar-catana.share.connect.posit.cloud**  
 > Feedback: **Zlatko@MyStatisticalConsultant.com**
 
 ## Overview
@@ -82,7 +82,13 @@ The console will show a local URL (e.g., http://127.0.0.1:XXXX). Open it in your
 
 Issues, ideas, and pull requests are welcome!
 
-- Live app: https://YOUR-LIVE-APP-URL
+- Live app: https://statisticar-catana.share.connect.posit.cloud
 - Email: Zlatko@MyStatisticalConsultant.com
 
 Please include a small sample dataset and steps to reproduce any issue.
+
+### 8) License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+<sub>© 2025 Zlatko J. Kovačić</sub>
