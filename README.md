@@ -69,7 +69,7 @@ The console will show a local URL (e.g., http://127.0.0.1:XXXX). Open it in your
 
 #### Default dataset limits
 
-- Max *10 variables, 1,000 observations* (Adjust in `server` code if needed.)
+- Max *10 variables, 5,000 observations* (Adjust in `server` code if needed.)
 
 ### 6) Technical notes
 
