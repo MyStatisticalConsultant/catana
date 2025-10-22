@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Zlatko J. Kovačić
 ###########################################
 #            SHINY APP FOR  
 #        CATEGORICAL VARIABLES
@@ -2533,4 +2535,5 @@ return(test)
   source(file = "report.R", local = TRUE)
   
 }
+
 shinyApp(ui, server)
