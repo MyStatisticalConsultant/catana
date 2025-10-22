@@ -18,6 +18,7 @@ library(formattable)
 library(readxl)
 library(knitr)
 library(kableExtra)
+library(markdown)
 
 # #####################################
 #               B O D Y 
