@@ -16,7 +16,8 @@ library(ggplot2)
 library(tidyr)
 library(formattable)
 library(readxl)
-library(rmarkdown)
+library(knitr)
+library(kableExtra)
 
 # #####################################
 #               B O D Y 
