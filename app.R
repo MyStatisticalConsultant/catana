@@ -170,7 +170,7 @@ body <- dashboardBody(
 			  fluidRow(
 			  box(
 				title=tagList(shiny::icon("download"), "Save results"), status="primary", solidHeader=TRUE, collapsible = TRUE, collapsed = TRUE,
-                tags$h5("To save results in a report:", tags$p(" "), tags$ol(tags$li("Enter your name in the textbox (at the top of the sidebar)."), tags$li("Select a document format (PDF, HTML or Word)."),tags$li("Type any comments you may have about the results in the textbox labelled Interpretation."), tags$li("Press", tags$i("Download Report"), "button."), tags$li("Save the report on your disc.")))
+                tags$h5("To save results in a report:", tags$p(" "), tags$ol(tags$li("Enter your name in the textbox (at the top of the sidebar)."), tags$li("Document will be saved in the Word .docx format."),tags$li("Type any comments you may have about the results in the textbox labelled Interpretation."), tags$li("Press", tags$i("Download Report"), "button."), tags$li("Save the report on your disc.")))
               ),			  
 			  box(
                 title=tagList(shiny::icon("code"), "R codes"), status="primary", solidHeader=TRUE, collapsible = TRUE,  collapsed = TRUE,
